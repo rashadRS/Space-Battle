@@ -8,6 +8,3 @@
 4. SOFAN RASHADD ALI QAID
 
 */
-
-#include <iostream>
-#include <vector>
