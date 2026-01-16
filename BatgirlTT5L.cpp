@@ -12,6 +12,11 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+// ======================
+//     read file
+// - SOFAN RASHADD ALI QAID
+// ======================
+#include <cctype>
 using namespace std;
 
 // ======================
@@ -385,6 +390,200 @@ Ship* createShip(string id, string type, string name) {
     return nullptr;
 }
 
+// ======================
+//     read file
+// - SOFAN RASHADD ALI QAID
+// ======================
+string trimWhitespace(const string& value)
+{
+    size_t start = 0;
+    while (start < value.size() && isspace(static_cast<unsigned char>(value[start])))
+    {
+        start++;
+    }
+    size_t end = value.size();
+    while (end > start && isspace(static_cast<unsigned char>(value[end - 1])))
+    {
+        end--;
+    }
+    return value.substr(start, end - start);
+}
+
+bool parseCsvLine(const string& line, vector<string>& fields)
+{
+    fields.clear();
+    string current;
+    bool inQuotes = false;
+
+    for (size_t i = 0; i < line.size(); i++)
+    {
+        char ch = line[i];
+        if (ch == '"')
+        {
+            if (inQuotes && i + 1 < line.size() && line[i + 1] == '"')
+            {
+                current += '"';
+                i++;
+            }
+            else
+            {
+                inQuotes = !inQuotes;
+            }
+        }
+        else if (ch == ',' && !inQuotes)
+        {
+            fields.push_back(trimWhitespace(current));
+            current.clear();
+        }
+        else
+        {
+            current += ch;
+        }
+    }
+
+    if (inQuotes)
+    {
+        return false;
+    }
+
+    fields.push_back(trimWhitespace(current));
+    return true;
+}
+
+bool isHeaderRow(const vector<string>& fields, const string& firstHeader)
+{
+    if (fields.empty())
+    {
+        return false;
+    }
+    return fields[0] == firstHeader;
+}
+
+void readCrewCsv(const string& filename, vector<Person*>& crewList)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Warning: Unable to open crew file: " << filename << endl;
+        return;
+    }
+
+    string line;
+    int lineNumber = 0;
+    while (getline(file, line))
+    {
+        lineNumber++;
+        string trimmedLine = trimWhitespace(line);
+        if (trimmedLine.empty())
+        {
+            continue;
+        }
+
+        vector<string> fields;
+        if (!parseCsvLine(trimmedLine, fields))
+        {
+            cerr << "Warning: Malformed CSV line in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        if (isHeaderRow(fields, "person_id"))
+        {
+            continue;
+        }
+
+        if (fields.size() != 3)
+        {
+            cerr << "Warning: Invalid crew row in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        string personId = fields[0];
+        string personName = fields[1];
+        string role = fields[2];
+
+        if (personId.empty() || personName.empty() || role.empty())
+        {
+            cerr << "Warning: Missing crew data in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        if (role != "pilot" && role != "gunner" && role != "torpedo_handler")
+        {
+            cerr << "Warning: Unknown crew role '" << role << "' in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        crewList.push_back(new Person(personId, personName, role));
+    }
+}
+
+void readShipCsv(const string& filename, vector<Ship*>& ships)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Warning: Unable to open ship file: " << filename << endl;
+        return;
+    }
+
+    string line;
+    int lineNumber = 0;
+    while (getline(file, line))
+    {
+        lineNumber++;
+        string trimmedLine = trimWhitespace(line);
+        if (trimmedLine.empty())
+        {
+            continue;
+        }
+
+        vector<string> fields;
+        if (!parseCsvLine(trimmedLine, fields))
+        {
+            cerr << "Warning: Malformed CSV line in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        if (isHeaderRow(fields, "ship_id"))
+        {
+            continue;
+        }
+
+        if (fields.size() != 3)
+        {
+            cerr << "Warning: Invalid ship row in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        string shipId = fields[0];
+        string shipType = fields[1];
+        string shipName = fields[2];
+
+        if (shipId.empty() || shipType.empty() || shipName.empty())
+        {
+            cerr << "Warning: Missing ship data in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        Ship* ship = createShip(shipId, shipType, shipName);
+        if (ship == nullptr)
+        {
+            cerr << "Warning: Unknown ship type '" << shipType << "' in " << filename << " at line " << lineNumber << endl;
+            continue;
+        }
+
+        ships.push_back(ship);
+    }
+}
+
+void readAllCsvFiles(vector<Person*>& rCrew, vector<Ship*>& rShips, vector<Person*>& zCrew, vector<Ship*>& zShips)
+{
+    readCrewCsv("rCrew1.csv", rCrew);
+    readShipCsv("rShips1.csv", rShips);
+    readCrewCsv("zCrew1.csv", zCrew);
+    readShipCsv("zShips1.csv", zShips);
+}
+
 
 // ======================
 //   Assign crew to ships
@@ -478,17 +677,48 @@ int main(int argc, char* argv[]) {
 
     cout << "Space Battle Simulation" << endl;
     
-    Ship* testShip1 = new Guerriero("Z001", "Star Striker");
-    Ship* testShip2 = new Jager("R001", "Shadow Hunter");
-    
-    cout << *testShip1 << endl;
-    cout << *testShip2 << endl;
-    
-    *testShip1 -= 50;
-    cout << "After taking 50 damage: " << *testShip1 << endl;
-    
-    delete testShip1;
-    delete testShip2;
+    vector<Person*> rCrew;
+    vector<Person*> zCrew;
+    vector<Ship*> rShips;
+    vector<Ship*> zShips;
+
+    readAllCsvFiles(rCrew, rShips, zCrew, zShips);
+
+    assignCrewToShips(rShips, rCrew);
+    assignCrewToShips(zShips, zCrew);
+
+    cout << "Rogoatuskan ships loaded: " << rShips.size() << endl;
+    cout << "Zapezoid ships loaded: " << zShips.size() << endl;
+
+    for (Ship* ship : rShips)
+    {
+        cout << *ship << endl;
+    }
+
+    for (Ship* ship : zShips)
+    {
+        cout << *ship << endl;
+    }
+
+    for (Ship* ship : rShips)
+    {
+        delete ship;
+    }
+
+    for (Ship* ship : zShips)
+    {
+        delete ship;
+    }
+
+    for (Person* person : rCrew)
+    {
+        delete person;
+    }
+
+    for (Person* person : zCrew)
+    {
+        delete person;
+    }
     
     return 0;
 }
