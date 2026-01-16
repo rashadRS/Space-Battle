@@ -385,6 +385,119 @@ Ship* createShip(string id, string type, string name) {
     return nullptr;
 }
 
+// ======================
+//     read file
+// - Rashad Sofan
+// ======================
+bool parseCsvLine(const string& line, vector<string>& fields)
+{
+    fields.clear();
+    string field;
+    stringstream ss(line);
+    while (getline(ss, field, ','))
+    {
+        if (!field.empty() && field.back() == '\r')
+        {
+            field.pop_back();
+        }
+        fields.push_back(field);
+    }
+    return !fields.empty();
+}
+
+void readCrewCsv(const string& filename, vector<Person*>& crewList)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Error: Unable to open crew file: " << filename << endl;
+        return;
+    }
+
+    string line;
+    vector<string> fields;
+    while (getline(file, line))
+    {
+        if (line.find_first_not_of(" \t\r\n") == string::npos)
+        {
+            continue;
+        }
+
+        if (!parseCsvLine(line, fields) || fields.size() < 3)
+        {
+            cerr << "Warning: Malformed crew row in " << filename << ": " << line << endl;
+            continue;
+        }
+
+        if (fields[0] == "id" && fields[1] == "name" && fields[2] == "role")
+        {
+            continue;
+        }
+
+        if (fields[0].empty() || fields[1].empty() || fields[2].empty())
+        {
+            cerr << "Warning: Incomplete crew row in " << filename << ": " << line << endl;
+            continue;
+        }
+
+        crewList.push_back(new Person(fields[0], fields[1], fields[2]));
+    }
+}
+
+void readShipCsv(const string& filename, vector<Ship*>& ships)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        cerr << "Error: Unable to open ship file: " << filename << endl;
+        return;
+    }
+
+    string line;
+    vector<string> fields;
+    while (getline(file, line))
+    {
+        if (line.find_first_not_of(" \t\r\n") == string::npos)
+        {
+            continue;
+        }
+
+        if (!parseCsvLine(line, fields) || fields.size() < 3)
+        {
+            cerr << "Warning: Malformed ship row in " << filename << ": " << line << endl;
+            continue;
+        }
+
+        if (fields[0] == "id" && (fields[1] == "type" || fields[1] == "ship_type") && fields[2] == "name")
+        {
+            continue;
+        }
+
+        if (fields[0].empty() || fields[1].empty() || fields[2].empty())
+        {
+            cerr << "Warning: Incomplete ship row in " << filename << ": " << line << endl;
+            continue;
+        }
+
+        Ship* ship = createShip(fields[0], fields[1], fields[2]);
+        if (ship == nullptr)
+        {
+            cerr << "Warning: Unknown ship type in " << filename << ": " << fields[1] << endl;
+            continue;
+        }
+
+        ships.push_back(ship);
+    }
+}
+
+void readAllCsvFiles(vector<Person*>& rCrew, vector<Ship*>& rShips, vector<Person*>& zCrew, vector<Ship*>& zShips)
+{
+    readCrewCsv("rCrew1.csv", rCrew);
+    readShipCsv("rShips1.csv", rShips);
+    readCrewCsv("zCrew1.csv", zCrew);
+    readShipCsv("zShips1.csv", zShips);
+}
+
 
 // ======================
 //   Assign crew to ships
