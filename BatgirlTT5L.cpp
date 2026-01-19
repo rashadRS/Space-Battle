@@ -17,6 +17,12 @@
 // - SOFAN RASHADD ALI QAID
 // ======================
 #include <cctype>
+// ======================
+//     game engine
+// - Ahmad Aljammal
+// ======================
+#include <cstdlib>
+#include <ctime>
 using namespace std;
 
 // ======================
@@ -670,6 +676,137 @@ void assignCrewToShips(vector<Ship*>& ships, vector<Person*>& crewList)
     }
 }
 
+bool hasActiveShips(const vector<Ship*>& ships)
+{
+    for (const Ship* ship : ships)
+    {
+        if (!ship->isDestroyed())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+Ship* selectRandomTarget(vector<Ship*>& ships)
+{
+    vector<Ship*> validTargets;
+    for (Ship* ship : ships)
+    {
+        if (!ship->isDestroyed())
+        {
+            validTargets.push_back(ship);
+        }
+    }
+
+    if (validTargets.empty())
+    {
+        return nullptr;
+    }
+
+    int index = rand() % validTargets.size();
+    return validTargets[index];
+}
+
+bool resolveWeaponHit(Weapon* weapon, Ship* target)
+{
+    if (weapon == nullptr || target == nullptr)
+    {
+        return false;
+    }
+
+    double hitChance = 0.0;
+    if (weapon->getType() == "light_cannon")
+    {
+        hitChance = target->getLightHitChance();
+    }
+    else if (weapon->getType() == "torpedo")
+    {
+        hitChance = target->getTorpedoHitChance();
+    }
+
+    double roll = static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
+    return roll <= hitChance;
+}
+
+bool performAttackRound(vector<Ship*>& attackers, vector<Ship*>& defenders)
+{
+    bool attacked = false;
+
+    for (Ship* attacker : attackers)
+    {
+        if (attacker->isDestroyed() || !attacker->canFly())
+        {
+            continue;
+        }
+
+        for (Weapon* weapon : attacker->getWeapons())
+        {
+            if (!weapon->hasCrew())
+            {
+                continue;
+            }
+
+            Ship* target = selectRandomTarget(defenders);
+            if (target == nullptr)
+            {
+                return attacked;
+            }
+
+            attacked = true;
+
+            // roll to see if the attack hits based on target evasion
+            if (resolveWeaponHit(weapon, target))
+            {
+                int damage = weapon->getPower();
+                *target -= damage;
+                cout << attacker->getName() << " hits " << target->getName()
+                     << " for " << damage << " damage." << endl;
+            }
+            else
+            {
+                cout << attacker->getName() << " misses " << target->getName() << "." << endl;
+            }
+        }
+    }
+
+    return attacked;
+}
+
+void runBattle(vector<Ship*>& rShips, vector<Ship*>& zShips)
+{
+    int round = 1;
+
+    while (hasActiveShips(rShips) && hasActiveShips(zShips))
+    {
+        cout << "\n--- Battle Round " << round << " ---" << endl;
+
+        bool rAttack = performAttackRound(rShips, zShips);
+        bool zAttack = performAttackRound(zShips, rShips);
+
+        if (!rAttack && !zAttack)
+        {
+            cout << "Battle ended due to no valid attacks." << endl;
+            return;
+        }
+
+        round++;
+    }
+
+    if (hasActiveShips(rShips))
+    {
+        cout << "Rogoatuskan wins the battle." << endl;
+    }
+    else if (hasActiveShips(zShips))
+    {
+        cout << "Zapezoid wins the battle." << endl;
+    }
+    else
+    {
+        cout << "Battle ended with no ships remaining." << endl;
+    }
+}
+
 
 // testing 
 int main(int argc, char* argv[]) {
@@ -699,6 +836,8 @@ int main(int argc, char* argv[]) {
     {
         cout << *ship << endl;
     }
+
+    runBattle(rShips, zShips);
 
     for (Ship* ship : rShips)
     {
